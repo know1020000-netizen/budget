@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家庭記帳工具</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans TC', sans-serif; background: #f5f5f0; min-height: 100vh; padding: 1rem; }
+.app { max-width: 480px; margin: 0 auto; }
+.sync-bar { display: flex; align-items: center; justify-content: space-between; border-radius: 10px; padding: 8px 14px; margin-bottom: 1rem; font-size: 13px; }
+.sync-bar.ok { background: #E1F5EE; color: #0F6E56; }
+.sync-bar.loading { background: #FAEEDA; color: #633806; }
+.sync-bar.error { background: #FAECE7; color: #993C1D; }
+.sync-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.sync-bar.ok .sync-dot { background: #1D9E75; }
+.sync-bar.loading .sync-dot { background: #EF9F27; animation: blink 1s infinite; }
+.sync-bar.error .sync-dot { background: #D85A30; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+.month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.month-btn { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 7px 16px; font-size: 14px; cursor: pointer; }
+.month-btn:hover { background: #f0f0eb; }
+.month-label { font-size: 17px; font-weight: 600; color: #1a1a1a; }
+.balance-card { background: white; border-radius: 14px; padding: 1.5rem; margin-bottom: 1rem; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.balance-label { font-size: 12px; color: #888; margin-bottom: 4px; }
+.balance-amount { font-size: 36px; font-weight: 600; }
+.stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 1rem; }
+.stat-card { background: white; border-radius: 10px; padding: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.stat-label { font-size: 11px; color: #888; margin-bottom: 3px; }
+.stat-amount { font-size: 15px; font-weight: 600; }
+.income-c { color: #1D9E75; }
+.expense-c { color: #D85A30; }
+.cc-c { color: #185FA5; }
+.card { background: white; border-radius: 14px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.section-title { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 8px; }
+.add-row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.add-row input, .add-row select { background: #f5f5f0; border: 1px solid #e0e0d8; border-radius: 8px; padding: 9px 10px; font-size: 13px; color: #1a1a1a; font-family: inherit; outline: none; }
+.add-row input:focus, .add-row select:focus { border-color: #1D9E75; }
+.add-row input[type=text] { flex: 2; min-width: 80px; }
+.add-row input[type=number] { flex: 1.2; min-width: 60px; }
+.add-row input[type=date] { flex: 1.5; min-width: 110px; }
+.add-row select { flex: 1.4; min-width: 70px; }
+.type-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0d8; }
+.type-btn { flex: 1; padding: 9px 6px; font-size: 12px; cursor: pointer; background: white; border: none; color: #888; font-family: inherit; white-space: nowrap; }
+.type-btn.a-income { background: #E1F5EE; color: #0F6E56; font-weight: 600; }
+.type-btn.a-expense { background: #FAECE7; color: #993C1D; font-weight: 600; }
+.type-btn.a-cc { background: #E6F1FB; color: #185FA5; font-weight: 600; }
+.add-btn { padding: 9px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: #1a1a1a; color: white; font-family: inherit; }
+.add-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.tabs { display: flex; gap: 4px; margin-bottom: 0.75rem; flex-wrap: wrap; }
+.tab { padding: 6px 12px; border-radius: 8px; border: 1px solid #e0e0d8; background: white; font-size: 12px; color: #888; cursor: pointer; font-family: inherit; }
+.tab.active { background: #1a1a1a; color: white; border-color: transparent; }
+.tx-list { display: flex; flex-direction: column; gap: 6px; }
+.tx-item { display: flex; align-items: center; gap: 10px; background: white; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.tx-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.tx-icon.income { background: #E1F5EE; }
+.tx-icon.expense { background: #FAECE7; }
+.tx-icon.cc { background: #E6F1FB; }
+.tx-info { flex: 1; min-width: 0; }
+.tx-name { font-size: 14px; font-weight: 500; color: #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-meta { font-size: 11px; color: #888; display: flex; gap: 6px; align-items: center; margin-top: 2px; flex-wrap: wrap; }
+.cc-badge { font-size: 10px; background: #E6F1FB; color: #185FA5; padding: 1px 6px; border-radius: 4px; }
+.biz-badge { font-size: 10px; background: #FAEEDA; color: #633806; padding: 1px 6px; border-radius: 4px; }
+.card-badge { font-size: 10px; background: #F1EFE8; color: #444441; padding: 1px 6px; border-radius: 4px; }
+.tx-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+.tx-amount { font-size: 14px; font-weight: 600; }
+.tx-date-lbl { font-size: 11px; color: #aaa; }
+.empty { text-align: center; padding: 2.5rem; color: #aaa; font-size: 14px; }
+.bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.bar-label { font-size: 12px; color: #666; width: 64px; flex-shrink: 0; }
+.bar-bg { flex: 1; background: #f0f0eb; border-radius: 4px; height: 8px; }
+.bar-fill { height: 8px; border-radius: 4px; background: #D85A30; }
+.bar-val { font-size: 11px; color: #888; width: 64px; text-align: right; flex-shrink: 0; }
+.cc-summary { background: #E6F1FB; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.85rem; }
+.cc-sum-title { font-size: 12px; color: #185FA5; margin-bottom: 4px; font-weight: 600; }
+.cc-sum-amount { font-size: 22px; font-weight: 600; color: #185FA5; }
+.cc-sum-note { font-size: 11px; color: #378ADD; margin-top: 3px; }
+.biz-summary { background: #FAEEDA; border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.85rem; }
+.biz-sum-title { font-size: 12px; color: #633806; margin-bottom: 4px; font-weight: 600; }
+.biz-sum-amount { font-size: 22px; font-weight: 600; color: #854F0B; }
+.biz-sum-note { font-size: 11px; color: #BA7517; margin-top: 3px; }
+.cc-card-item { background: white; border-radius: 12px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 8px; }
+.cc-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cc-card-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+.cc-card-amount { font-size: 16px; font-weight: 600; color: #185FA5; }
+.cc-card-footer { display: flex; align-items: center; justify-content: space-between; }
+.cc-card-dates { font-size: 11px; color: #888; }
+.cc-alert { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 6px; }
+.cc-alert.urgent { background: #FCEBEB; color: #A32D2D; }
+.cc-alert.warning { background: #FAEEDA; color: #633806; }
+.cc-alert.safe { background: #E1F5EE; color: #085041; }
+.cc-select-row { display: none; margin-top: 6px; }
+.cc-select-row.show { display: flex; gap: 6px; }
+.cc-select-row select { background: #f5f5f0; border: 1px solid #85B7EB; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #185FA5; font-family: inherit; outline: none; flex: 1; font-weight: 600; }
+.del-btn { background: none; border: none; color: #ccc; font-size: 18px; cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0; }
+.del-btn:hover { color: #D85A30; }
+.edit-btn { background: none; border: none; color: #ccc; font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0; }
+.edit-btn:hover { color: #185FA5; }
+.modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:999; justify-content:center; align-items:center; }
+.modal-overlay.show { display:flex; }
+.modal { background:white; border-radius:16px; padding:1.25rem; width:90%; max-width:420px; box-shadow:0 8px 32px rgba(0,0,0,0.18); }
+.modal-title { font-size:15px; font-weight:600; color:#1a1a1a; margin-bottom:14px; }
+.modal-row { display:flex; flex-direction:column; gap:4px; margin-bottom:10px; }
+.modal-label { font-size:12px; color:#888; }
+.modal-input { background:#f5f5f0; border:1px solid #e0e0d8; border-radius:8px; padding:9px 10px; font-size:13px; color:#1a1a1a; font-family:inherit; outline:none; width:100%; }
+.modal-input:focus { border-color:#185FA5; }
+.modal-btns { display:flex; gap:8px; margin-top:14px; }
+.modal-save { flex:1; padding:10px; border-radius:8px; border:none; font-size:13px; font-weight:600; cursor:pointer; background:#1a1a1a; color:white; font-family:inherit; }
+.modal-cancel { flex:1; padding:10px; border-radius:8px; border:1px solid #e0e0d8; font-size:13px; cursor:pointer; background:white; color:#555; font-family:inherit; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sync-bar loading" id="syncbar">
+    <div><span class="sync-dot"></span><span id="smsg">連線中...</span></div>
+    <span style="font-size:11px;cursor:pointer;" onclick="loadData()">↻ 重新整理</span>
+  </div>
+  <div class="month-nav">
+    <button class="month-btn" onclick="changeMonth(-1)">‹ 上月</button>
+    <span class="month-label" id="mlabel"></span>
+    <button class="month-btn" onclick="changeMonth(1)">下月 ›</button>
+  </div>
+  <div class="balance-card">
+    <div class="balance-label">本月結餘（現金）</div>
+    <div class="balance-amount" id="balance">—</div>
+  </div>
+  <div class="stats-row" style="grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+    <div class="stat-card"><div class="stat-label">收入</div><div class="stat-amount income-c" id="ti">—</div></div>
+    <div class="stat-card"><div class="stat-label">現金支出</div><div class="stat-amount expense-c" id="te">—</div></div>
+    <div class="stat-card"><div class="stat-label">信用卡刷卡</div><div class="stat-amount cc-c" id="tc">—</div></div>
+    <div class="stat-card"><div class="stat-label">本月總支出</div><div class="stat-amount expense-c" id="ttotal">—</div></div>
+  </div>
+  <div class="card">
+    <div class="section-title">新增記錄</div>
+    <div class="add-row">
+      <input type="text" id="tname" placeholder="描述（例：午餐）">
+      <input type="number" id="tamount" placeholder="金額" min="0">
+      <input type="date" id="tdate">
+    </div>
+    <div class="add-row">
+      <select id="tcat">
+        <option>飲食</option>
+        <option>交通</option>
+        <option>購物</option>
+        <option>娛樂</option>
+        <option>醫療</option>
+        <option>薪資</option>
+        <option>公司費用</option>
+        <option>衣物</option>
+        <option>住宅</option>
+        <option>其他</option>
+      </select>
+      <div class="type-toggle">
+        <button class="type-btn a-expense" id="be" onclick="setType('expense')">現金支出</button>
+        <button class="type-btn" id="bc" onclick="setType('cc')">信用卡</button>
+        <button class="type-btn" id="bi" onclick="setType('income')">收入</button>
+      </div>
+      <button class="add-btn" id="abtn" onclick="addTx()">+ 新增</button>
+    </div>
+    <div class="cc-select-row" id="cc-select-row">
+      <select id="tcard">
+        <option value="富邦銀行(育)">💳 富邦銀行(育)</option>
+        <option value="富邦銀行(瑋)">💳 富邦銀行(瑋)</option>
+        <option value="第一銀行(瑋)">💳 第一銀行(瑋)</option>
+        <option value="第一銀行(育)">💳 第一銀行(育)</option>
+        <option value="玉山銀行(瑋)">💳 玉山銀行(瑋)</option>
+        <option value="玉山銀行(育)">💳 玉山銀行(育)</option>
+        <option value="台新銀行">💳 台新銀行</option>
+        <option value="遠東銀行">💳 遠東銀行</option>
+        <option value="星展銀行">💳 星展銀行</option>
+        <option value="永豐銀行">💳 永豐銀行</option>
+      </select>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('list',this)">明細</button>
+    <button class="tab" onclick="switchTab('chart',this)">分析</button>
+    <button class="tab" onclick="switchTab('cc',this)">信用卡</button>
+    <button class="tab" onclick="switchTab('biz',this)">公司費用</button>
+  </div>
+  <div id="tab-list"><div class="tx-list" id="txlist"><div class="empty">載入中...</div></div></div>
+  <div id="tab-chart" style="display:none"><div id="barchart" class="card"></div></div>
+  <div id="tab-cc" style="display:none">
+    <div class="cc-summary">
+      <div class="cc-sum-title">本月所有信用卡總額</div>
+      <div class="cc-sum-amount" id="cctotal">—</div>
+      <div class="cc-sum-note">消費當下記帳，繳款時不需重複記錄</div>
+    </div>
+    <div id="cc-cards"></div>
+    <div style="font-size:13px;font-weight:600;color:#555;margin:12px 0 6px;">所有信用卡明細</div>
+    <div class="tx-list" id="cclist"></div>
+  </div>
+  <div id="tab-biz" style="display:none">
+    <div class="biz-summary">
+      <div class="biz-sum-title">本月公司費用待請款總額</div>
+      <div class="biz-sum-amount" id="biztotal">—</div>
+      <div class="biz-sum-note">先行墊付，記得向公司請款</div>
+    </div>
+    <div class="tx-list" id="bizlist"></div>
+  </div>
+</div>
+
+<!-- 編輯 Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-title">編輯記錄</div>
+    <div class="modal-row">
+      <div class="modal-label">描述</div>
+      <input class="modal-input" id="edit-name" type="text" placeholder="描述">
+    </div>
+    <div class="modal-row">
+      <div class="modal-label">金額</div>
+      <input class="modal-input" id="edit-amount" type="number" placeholder="金額">
+    </div>
+    <div class="modal-row">
+      <div class="modal-label">日期</div>
+      <input class="modal-input" id="edit-date" type="date">
+    </div>
+    <div class="modal-row">
+      <div class="modal-label">類別</div>
+      <select class="modal-input" id="edit-cat">
+        <option>飲食</option><option>交通</option><option>購物</option><option>娛樂</option>
+        <option>醫療</option><option>薪資</option><option>公司費用</option><option>衣物</option>
+        <option>住宅</option><option>其他</option>
+      </select>
+    </div>
+    <div class="modal-row">
+      <div class="modal-label">類型</div>
+      <select class="modal-input" id="edit-type">
+        <option value="expense">現金支出</option>
+        <option value="cc">信用卡</option>
+        <option value="income">收入</option>
+      </select>
+    </div>
+    <div class="modal-row" id="edit-card-row">
+      <div class="modal-label">信用卡</div>
+      <select class="modal-input" id="edit-card">
+        <option value="">-- 未選擇 --</option>
+        <option value="富邦銀行(育)">富邦銀行(育)</option>
+        <option value="富邦銀行(瑋)">富邦銀行(瑋)</option>
+        <option value="第一銀行(瑋)">第一銀行(瑋)</option>
+        <option value="第一銀行(育)">第一銀行(育)</option>
+        <option value="玉山銀行(瑋)">玉山銀行(瑋)</option>
+        <option value="玉山銀行(育)">玉山銀行(育)</option>
+        <option value="台新銀行">台新銀行</option>
+        <option value="遠東銀行">遠東銀行</option>
+        <option value="星展銀行">星展銀行</option>
+        <option value="永豐銀行">永豐銀行</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeEdit()">取消</button>
+      <button class="modal-save" onclick="saveEdit()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var SHEET_ID='1LkQYxKMSY6bLLjbVnkgMxvdHkrDnsjQTY7f471neNHw';
+var API='https://script.google.com/macros/s/AKfycbza1MUWUbu4Hz81K3ogme7WVSY3oUMl35oeZb5vnjZPS13b45pM7NhuTlZsPMPzBFVJ/exec';
+var ICONS={飲食:'🍜',交通:'🚇',購物:'🛍️',娛樂:'🎮',醫療:'💊',薪資:'💰',公司費用:'🏢',衣物:'👗',住宅:'🏠',其他:'📌'};
+
+// 信用卡設定：帳單截止日、繳款截止日
+var CARDS=[
+  
+  {name:'富邦銀行(育)',billDay:2,payDay:18},{name:'富邦銀行(瑋)',billDay:4,payDay:20},{name:'第一銀行(瑋)',billDay:30,payDay:15},{name:'第一銀行(育)',billDay:10,payDay:25},{name:'玉山銀行(瑋)',billDay:3,payDay:18},{name:'玉山銀行(育)',billDay:7,payDay:23},{name:'台新銀行',billDay:2,payDay:17},{name:'遠東銀行',billDay:1,payDay:20},{name:'星展銀行',billDay:4,payDay:23},{name:'永豐銀行',billDay:5,payDay:20}
+];
+
+var txType='expense',curY,curM,allTxs=[];
+
+function today(){var d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
+function p2(n){return String(n).padStart(2,'0');}
+function fmt(n){return'NT$ '+Number(n).toLocaleString();}
+function fmtD(d){var p=String(d).split('-');return p.length>=3?p[1]+'/'+p[2]:d;}
+
+function getDaysUntilPay(payDay){
+  var now=new Date();
+  var thisMonth=new Date(now.getFullYear(),now.getMonth(),payDay);
+  if(thisMonth<now){thisMonth=new Date(now.getFullYear(),now.getMonth()+1,payDay);}
+  return Math.ceil((thisMonth-now)/(1000*60*60*24));
+}
+
+function getAlertClass(days){
+  if(days<=3)return'urgent';
+  if(days<=7)return'warning';
+  return'safe';
+}
+
+function getAlertText(days){
+  if(days<=0)return'⚠️ 今天到期！';
+  if(days===1)return'⚠️ 明天繳款！';
+  return'還有 '+days+' 天繳款';
+}
+
+function syncStatus(state,msg){
+  document.getElementById('syncbar').className='sync-bar '+state;
+  document.getElementById('smsg').textContent=msg;
+}
+
+function setType(t){
+  txType=t;
+  document.getElementById('be').className='type-btn'+(t==='expense'?' a-expense':'');
+  document.getElementById('bc').className='type-btn'+(t==='cc'?' a-cc':'');
+  document.getElementById('bi').className='type-btn'+(t==='income'?' a-income':'');
+  document.getElementById('cc-select-row').className='cc-select-row'+(t==='cc'?' show':'');
+}
+
+function parseCSV(text){
+  var lines=text.trim().split('\n');
+  if(lines.length<2)return[];
+  var headers=lines[0].split(',').map(function(h){return h.trim().replace(/"/g,'');});
+  var results=[];
+  for(var i=1;i<lines.length;i++){
+    var line=lines[i];
+    var cols=[];var cur='';var inQ=false;
+    for(var j=0;j<line.length;j++){
+      var c=line[j];
+      if(c==='"'){inQ=!inQ;}
+      else if(c===','&&!inQ){cols.push(cur.trim());cur='';}
+      else{cur+=c;}
+    }
+    cols.push(cur.trim());
+    var obj={};
+    headers.forEach(function(h,idx){obj[h]=(cols[idx]||'').replace(/"/g,'').trim();});
+    if(obj['日期']&&obj['描述'])results.push(obj);
+  }
+  return results;
+}
+
+function loadData(){
+  syncStatus('loading','同步中...');
+  var cbName='cb_'+Date.now();
+  var script=document.createElement('script');
+  window[cbName]=function(data){
+    try{delete window[cbName];}catch(e){}
+    try{document.head.removeChild(script);}catch(e){}
+    allTxs=data.map(function(r,i){
+      return{
+        id:i,
+        date:String(r['日期']||'').trim().substring(0,10),
+        name:String(r['描述']||'').trim(),
+        amount:parseFloat(r['金額'])||0,
+        type:String(r['類型']||'expense').trim(),
+        cat:String(r['類別']||'其他').trim(),
+        card:String(r['信用卡']||'').trim(),
+        _row:parseInt(r['_row'])||i+2
+      };
+    }).filter(function(r){return r.name;});
+    syncStatus('ok','已同步 Google 試算表 ✓');
+    render();
+  };
+  script.onerror=function(){
+    try{delete window[cbName];}catch(e){}
+    syncStatus('error','連線失敗，請重新整理');
+    render();
+  };
+  script.src=API+'?callback='+cbName+'&t='+Date.now();
+  document.head.appendChild(script);
+}
+
+function getMonthTxs(){
+  var pre=curY+'-'+p2(curM);
+  return allTxs.filter(function(t){
+    var d=String(t.date||'');
+    return d.startsWith(pre)||d.startsWith(curY+'/'+p2(curM));
+  }).sort(function(a,b){return a.date>b.date?-1:1;});
+}
+
+function changeMonth(d){
+  curM+=d;
+  if(curM>12){curM=1;curY++;}
+  if(curM<1){curM=12;curY--;}
+  render();
+}
+
+var editingRow=null;
+
+function openEdit(row){
+  var tx=allTxs.find(function(t){return t._row===row;});
+  if(!tx)return;
+  editingRow=row;
+  document.getElementById('edit-name').value=tx.name||'';
+  document.getElementById('edit-amount').value=tx.amount||'';
+  document.getElementById('edit-date').value=tx.date||'';
+  document.getElementById('edit-cat').value=tx.cat||'其他';
+  document.getElementById('edit-type').value=tx.type||'expense';
+  document.getElementById('edit-card').value=tx.card||'';
+  document.getElementById('edit-card-row').style.display=tx.type==='cc'?'flex':'none';
+  document.getElementById('edit-type').onchange=function(){
+    document.getElementById('edit-card-row').style.display=this.value==='cc'?'flex':'none';
+  };
+  document.getElementById('editModal').className='modal-overlay show';
+}
+
+function closeEdit(){
+  document.getElementById('editModal').className='modal-overlay';
+  editingRow=null;
+}
+
+function saveEdit(){
+  if(!editingRow)return;
+  var name=document.getElementById('edit-name').value.trim();
+  var amount=parseFloat(document.getElementById('edit-amount').value);
+  var date=document.getElementById('edit-date').value;
+  var cat=document.getElementById('edit-cat').value;
+  var type=document.getElementById('edit-type').value;
+  var card=type==='cc'?document.getElementById('edit-card').value:'';
+  if(!name||!amount||!date)return;
+  syncStatus('loading','更新中...');
+  fetch(API,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'update',rowIndex:editingRow,date:date,name:name,amount:amount,type:type,cat:cat,card:card})
+  }).then(function(){
+    closeEdit();
+    syncStatus('loading','更新成功！3秒後重新整理...');
+    setTimeout(loadData,3000);
+  }).catch(function(){
+    syncStatus('error','更新失敗，請重試');
+  });
+}
+
+function deleteTx(row,name){
+  if(!confirm('確定要刪除「'+name+'」嗎？'))return;
+  syncStatus('loading','刪除中...');
+  fetch(API,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'delete',rowIndex:row})
+  }).then(function(){
+    syncStatus('loading','刪除成功！3秒後更新資料...');
+    setTimeout(loadData,3000);
+  }).catch(function(){
+    syncStatus('error','刪除失敗，請重試');
+  });
+}
+
+function addTx(){
+  var name=document.getElementById('tname').value.trim();
+  var amount=parseFloat(document.getElementById('tamount').value);
+  var cat=document.getElementById('tcat').value;
+  var date=document.getElementById('tdate').value||today();
+  var card=txType==='cc'?document.getElementById('tcard').value:'';
+  if(!name||!amount||amount<=0)return;
+  var btn=document.getElementById('abtn');
+  btn.disabled=true;btn.textContent='儲存中...';
+  syncStatus('loading','寫入試算表...');
+  fetch(API,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({date:date,name:name,amount:amount,type:txType,cat:cat,card:card})
+  }).then(function(){
+    document.getElementById('tname').value='';
+    document.getElementById('tamount').value='';
+    document.getElementById('tdate').value='';
+    btn.disabled=false;btn.textContent='+ 新增';
+    syncStatus('loading','儲存成功！3秒後更新資料...');
+    setTimeout(loadData,3000);
+  }).catch(function(){
+    syncStatus('error','儲存失敗，請重試');
+    btn.disabled=false;btn.textContent='+ 新增';
+  });
+}
+
+function renderList(id,items){
+  var el=document.getElementById(id);
+  if(!items.length){el.innerHTML='<div class="empty">本月沒有記錄</div>';return;}
+  el.innerHTML=items.map(function(t){
+    var badges='';
+    if(t.type==='cc')badges+='<span class="cc-badge">信用卡</span>';
+    if(t.card)badges+='<span class="card-badge">'+t.card+'</span>';
+    if(t.cat==='公司費用')badges+='<span class="biz-badge">待請款</span>';
+    return'<div class="tx-item">'+
+      '<div class="tx-icon '+(t.cat==='公司費用'?'expense':t.type)+'">'+(ICONS[t.cat]||'📌')+'</div>'+
+      '<div class="tx-info"><div class="tx-name">'+t.name+'</div>'+
+      '<div class="tx-meta"><span>'+t.cat+'</span>'+badges+'</div></div>'+
+      '<button class="edit-btn" onclick="openEdit('+t._row+')" title="編輯">✎</button>'+'<button class="del-btn" onclick="deleteTx('+t._row+',\''+t.name+'\')" title="刪除">×</button>'+
+      '<div class="tx-right">'+
+      '<div class="tx-amount '+(t.type==='income'?'income-c':t.type==='cc'?'cc-c':'expense-c')+'">'+(t.type==='income'?'+':'-')+fmt(t.amount)+'</div>'+
+      '<div class="tx-date-lbl">'+fmtD(t.date)+'</div></div></div>';
+  }).join('');
+}
+
+function renderCCCards(txs){
+  var el=document.getElementById('cc-cards');
+  el.innerHTML=CARDS.map(function(card){
+    var cardTxs=txs.filter(function(t){return t.type==='cc'&&(t.card||'').trim()===(card.name||'').trim();});
+    var total=cardTxs.reduce(function(s,t){return s+t.amount;},0);
+    var days=getDaysUntilPay(card.payDay);
+    var alertClass=getAlertClass(days);
+    var alertText=getAlertText(days);
+    return'<div class="cc-card-item">'+
+      '<div class="cc-card-header">'+
+      '<div class="cc-card-name">💳 '+card.name+'</div>'+
+      '<div class="cc-card-amount">'+fmt(total)+'</div>'+
+      '</div>'+
+      '<div class="cc-card-footer">'+
+      '<div class="cc-card-dates">帳單截止：每月'+card.billDay+'號 ／ 繳款：每月'+card.payDay+'號</div>'+
+      '<div class="cc-alert '+alertClass+'">'+alertText+'</div>'+
+      '</div></div>';
+  }).join('');
+}
+
+function render(){
+  document.getElementById('mlabel').textContent=curY+'年'+curM+'月';
+  var txs=getMonthTxs();
+  var inc=txs.filter(function(t){return t.type==='income';}).reduce(function(s,t){return s+t.amount;},0);
+  var exp=txs.filter(function(t){return t.type==='expense';}).reduce(function(s,t){return s+t.amount;},0);
+  var cc=txs.filter(function(t){return t.type==='cc';}).reduce(function(s,t){return s+t.amount;},0);
+  var biz=txs.filter(function(t){return t.cat==='公司費用';}).reduce(function(s,t){return s+t.amount;},0);
+  var bal=inc-exp;
+  var be=document.getElementById('balance');
+  be.textContent=(bal>=0?'':'-')+'NT$ '+Math.abs(bal).toLocaleString();
+  be.style.color=bal>=0?'#1D9E75':'#D85A30';
+  document.getElementById('ti').textContent=fmt(inc);
+  document.getElementById('ttotal').textContent=fmt(exp+cc);
+  document.getElementById('te').textContent=fmt(exp);
+  document.getElementById('tc').textContent=fmt(cc);
+  var ccBillingTotal=CARDS.reduce(function(sum,card){
+    var cardTxs=allTxs.filter(function(t){
+      return t.type==='cc'&&(t.card||'').trim()===(card.name||'').trim()&&inBillingPeriod(t.date,card.billDay);
+    });
+    return sum+cardTxs.reduce(function(s,t){return s+t.amount;},0);
+  },0);
+  document.getElementById('cctotal').textContent=fmt(ccBillingTotal);
+  document.getElementById('biztotal').textContent=fmt(biz);
+  renderList('txlist',txs);
+  renderList('cclist',txs.filter(function(t){return t.type==='cc';}));
+  renderList('bizlist',txs.filter(function(t){return t.cat==='公司費用';}));
+  renderCCCards(allTxs);
+  var catMap={};
+  txs.filter(function(t){return t.type!=='income';}).forEach(function(t){catMap[t.cat]=(catMap[t.cat]||0)+t.amount;});
+  var sorted=Object.entries(catMap).sort(function(a,b){return b[1]-a[1];});
+  var max=sorted.length?sorted[0][1]:1;
+  document.getElementById('barchart').innerHTML=sorted.length?sorted.map(function(e){
+    return'<div class="bar-row"><div class="bar-label">'+(ICONS[e[0]]||'')+' '+e[0]+'</div>'+
+      '<div class="bar-bg"><div class="bar-fill" style="width:'+Math.round(e[1]/max*100)+'%"></div></div>'+
+      '<div class="bar-val">'+fmt(e[1])+'</div></div>';
+  }).join(''):'<div class="empty">沒有支出資料</div>';
+}
+
+function switchTab(tab,btn){
+  ['list','chart','cc','biz'].forEach(function(t){document.getElementById('tab-'+t).style.display=t===tab?'':'none';});
+  document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+}
+
+(function(){
+  var d=new Date();curY=d.getFullYear();curM=d.getMonth()+1;
+  document.getElementById('tdate').value=today();
+  loadData();
+})();
+</script>
+</body>
+</html>
