@@ -334,19 +334,28 @@ function loadData(){
   window[cbName]=function(data){
     try{delete window[cbName];}catch(e){}
     try{document.head.removeChild(script);}catch(e){}
-    allTxs=data.map(function(r,i){
-      return{
+    allTxs=[];
+    for(var i=0;i<data.length;i++){
+      var r=data[i];
+      var rawDate=String(r['日期']||r['날짜']||'');
+      // 取前10碼 YYYY-MM-DD，處理各種格式
+      var dateStr=rawDate.replace(/T.*/,'').replace(/\//g,'-').trim().substring(0,10);
+      var name=String(r['描述']||'').trim();
+      if(!name)continue;
+      allTxs.push({
         id:i,
-        date:String(r['日期']||'').trim().substring(0,10),
-        name:String(r['描述']||'').trim(),
+        date:dateStr,
+        name:name,
         amount:parseFloat(r['金額'])||0,
         type:String(r['類型']||'expense').trim(),
         cat:String(r['類別']||'其他').trim(),
         card:String(r['信用卡']||'').trim(),
         _row:parseInt(r['_row'])||i+2
-      };
-    }).filter(function(r){return r.name;});
-    syncStatus('ok','已同步 Google 試算表 ✓');
+      });
+    }
+    console.log('總筆數:',allTxs.length);
+    if(allTxs.length>0)console.log('第一筆日期:「'+allTxs[0].date+'」名稱:「'+allTxs[0].name+'」');
+    syncStatus('ok','已同步 '+allTxs.length+' 筆資料 ✓');
     render();
   };
   script.onerror=function(){
@@ -360,10 +369,12 @@ function loadData(){
 
 function getMonthTxs(){
   var pre=curY+'-'+p2(curM);
-  return allTxs.filter(function(t){
-    var d=String(t.date||'');
-    return d.startsWith(pre)||d.startsWith(curY+'/'+p2(curM));
-  }).sort(function(a,b){return a.date>b.date?-1:1;});
+  var result=allTxs.filter(function(t){
+    var d=String(t.date||'').trim();
+    return d.indexOf(pre)===0;
+  });
+  console.log('篩選月份:',pre,'筆數:',result.length);
+  return result.sort(function(a,b){return a.date>b.date?-1:1;});
 }
 
 function changeMonth(d){
