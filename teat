@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>記帳工具</title>
+<style>
+body { font-family: sans-serif; padding: 1rem; background: #f5f5f0; }
+.app { max-width: 480px; margin: 0 auto; }
+#status { background: #E1F5EE; padding: 10px; border-radius: 8px; margin-bottom: 1rem; font-size: 13px; }
+.tx { background: white; border-radius: 8px; padding: 10px 14px; margin-bottom: 6px; display: flex; justify-content: space-between; }
+.tx-left { flex: 1; }
+.tx-name { font-weight: 600; font-size: 14px; }
+.tx-meta { font-size: 11px; color: #888; margin-top: 2px; }
+.tx-amount { font-weight: 600; font-size: 14px; }
+.inc { color: #1D9E75; }
+.exp { color: #D85A30; }
+.cc { color: #185FA5; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="status">連線中...</div>
+  <div id="list"></div>
+</div>
+<script>
+var API = 'https://script.google.com/macros/s/AKfycbza1MUWUbu4Hz81K3ogme7WVSY3oUMl35oeZb5vnjZPS13b45pM7NhuTlZsPMPzBFVJ/exec';
+
+function p2(n){ return String(n).padStart(2,'0'); }
+function cleanDate(raw){
+  var s = String(raw||'').trim();
+  s = s.replace(/T.*/,'').replace(/\//g,'-');
+  return s.substring(0,10);
+}
+
+var cbName = 'cb' + Date.now();
+window[cbName] = function(data){
+  try{ delete window[cbName]; }catch(e){}
+  
+  var now = new Date();
+  var curY = now.getFullYear();
+  var curM = now.getMonth() + 1;
+  var pre = curY + '-' + p2(curM);
+  
+  var all = [];
+  for(var i=0; i<data.length; i++){
+    var r = data[i];
+    var name = String(r['描述']||'').trim();
+    if(!name) continue;
+    var date = cleanDate(r['日期']);
+    all.push({
+      date: date,
+      name: name,
+      amount: parseFloat(r['金額'])||0,
+      type: String(r['類型']||'expense').trim(),
+      cat: String(r['類別']||'').trim(),
+      card: String(r['信用卡']||'').trim()
+    });
+  }
+  
+  document.getElementById('status').textContent = '共讀取 ' + all.length + ' 筆，篩選 ' + pre;
+  
+  var month = all.filter(function(t){
+    return t.date.substring(0,7) === pre;
+  });
+  
+  document.getElementById('status').textContent += '，本月 ' + month.length + ' 筆';
+  
+  var html = '';
+  for(var i=0; i<month.length; i++){
+    var t = month[i];
+    var cls = t.type==='income'?'inc':t.type==='cc'?'cc':'exp';
+    var sign = t.type==='income'?'+':'-';
+    html += '<div class="tx">';
+    html += '<div class="tx-left">';
+    html += '<div class="tx-name">' + t.name + '</div>';
+    html += '<div class="tx-meta">' + t.date + ' · ' + t.cat + (t.card?' · '+t.card:'') + '</div>';
+    html += '</div>';
+    html += '<div class="tx-amount ' + cls + '">' + sign + 'NT$' + Math.round(t.amount).toLocaleString() + '</div>';
+    html += '</div>';
+  }
+  
+  if(!html) html = '<div style="text-align:center;padding:2rem;color:#aaa;">本月沒有記錄</div>';
+  document.getElementById('list').innerHTML = html;
+};
+
+var script = document.createElement('script');
+script.onerror = function(){
+  document.getElementById('status').textContent = '連線失敗！';
+};
+script.src = API + '?callback=' + cbName + '&t=' + Date.now();
+document.head.appendChild(script);
+</script>
+</body>
+</html>
