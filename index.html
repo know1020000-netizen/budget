@@ -144,7 +144,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
       <select id="tcat">
         <option>飲食</option><option>交通</option><option>購物</option><option>娛樂</option>
         <option>醫療</option><option>薪資</option><option>公司費用</option><option>衣物</option>
-        <option>住宅</option><option>其他</option>
+        <option>住宅</option><option>股票</option>
+        <option>其他</option>
       </select>
       <div class="type-toggle">
         <button class="type-btn a-expense" id="be" onclick="setType('expense')">現金支出</button>
@@ -220,7 +221,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
       <select class="modal-input" id="edit-cat">
         <option>飲食</option><option>交通</option><option>購物</option><option>娛樂</option>
         <option>醫療</option><option>薪資</option><option>公司費用</option><option>衣物</option>
-        <option>住宅</option><option>其他</option>
+        <option>住宅</option><option>股票</option>
+        <option>其他</option>
       </select>
     </div>
     <div class="modal-row"><div class="modal-label">類型</div>
@@ -255,7 +257,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 
 <script>
 var API='https://script.google.com/macros/s/AKfycbza1MUWUbu4Hz81K3ogme7WVSY3oUMl35oeZb5vnjZPS13b45pM7NhuTlZsPMPzBFVJ/exec';
-var ICONS={飲食:'🍜',交通:'🚇',購物:'🛍️',娛樂:'🎮',醫療:'💊',薪資:'💰',公司費用:'🏢',衣物:'👗',住宅:'🏠',其他:'📌'};
+var ICONS={飲食:'🍜',交通:'🚇',購物:'🛍️',娛樂:'🎮',醫療:'💊',薪資:'💰',公司費用:'🏢',衣物:'👗',住宅:'🏠',股票:'📈',其他:'📌'};
 var CARDS=[
   {name:'富邦銀行(育)',billDay:2,payDay:18},
   {name:'富邦銀行(瑋)',billDay:4,payDay:20},
