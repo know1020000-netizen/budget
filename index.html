@@ -578,7 +578,7 @@ function render(){
       detailHtml+='<div style="font-weight:600;color:'+stColor+';">-NT$'+Math.round(st.amount).toLocaleString()+'</div></div>';
     }
     chartHtml+='<div style="margin-bottom:6px;">';
-    chartHtml+='<div class="bar-row" style="cursor:pointer;" onclick="toggleCatDetail(''+detailId+'')">';
+    chartHtml+='<div class="bar-row" style="cursor:pointer;" onclick="toggleCatDetail(this)" data-id="'+detailId+'">';
     chartHtml+='<div class="bar-label">'+(ICONS[cat]||'')+' '+cat+'</div>';
     chartHtml+='<div class="bar-bg"><div class="bar-fill" style="width:'+Math.round(amt/max*100)+'%;background:'+barColor+';"></div></div>';
     chartHtml+='<div class="bar-val">'+fmt(amt)+'</div>';
@@ -706,17 +706,14 @@ function runAIAnalysis(){
   result.style.display='block';
 }
 
-function toggleCatDetail(id){
+function toggleCatDetail(row){
+  var id=row.getAttribute('data-id');
   var el=document.getElementById(id);
   if(!el)return;
   var isOpen=el.style.display!=='none';
   el.style.display=isOpen?'none':'block';
-  // 更新箭頭
-  var row=el.previousElementSibling;
-  if(row){
-    var arrow=row.querySelector('div:last-child');
-    if(arrow)arrow.textContent=isOpen?'▶':'▼';
-  }
+  var arrow=row.querySelector('div:last-child');
+  if(arrow)arrow.textContent=isOpen?'▶':'▼';
 }
 
 function switchTab(tab,btn){
