@@ -500,9 +500,14 @@ function render(){
   for(var i=0;i<txs.length;i++){
     var t=txs[i];
     if(t.type==='income')inc+=t.amount;
-    else if(t.type==='expense')exp+=t.amount;
-    else if(t.type==='cc')cc+=t.amount;
-    if(t.cat==='公司費用')biz+=t.amount;
+    else if(t.type==='expense'){
+      if(t.cat==='公司費用')biz+=t.amount;
+      else exp+=t.amount;
+    }
+    else if(t.type==='cc'){
+      if(t.cat==='公司費用')biz+=t.amount;
+      else cc+=t.amount;
+    }
   }
   var bal=inc-exp;
   document.getElementById('ti').textContent=fmt(inc);
@@ -540,14 +545,48 @@ function render(){
   document.getElementById('cctotal').textContent=fmt(grandTotal);
 
   var catMap={};
-  for(var i=0;i<txs.length;i++){if(txs[i].type!=='income'){var c=txs[i].cat;catMap[c]=(catMap[c]||0)+txs[i].amount;}}
+  var catTxMap={};
+  for(var i=0;i<txs.length;i++){
+    var t=txs[i];
+    if(t.type!=='income'){
+      if(!catMap[t.cat])catMap[t.cat]=0;
+      if(!catTxMap[t.cat])catTxMap[t.cat]=[];
+      catMap[t.cat]+=t.amount;
+      catTxMap[t.cat].push(t);
+    }
+  }
   var sorted=Object.entries(catMap).sort(function(a,b){return b[1]-a[1];});
-  var max=sorted.length?sorted[0][1]:1;
+  var nonBizSorted=sorted.filter(function(e){return e[0]!=='公司費用';});
+  var bizSorted=sorted.filter(function(e){return e[0]==='公司費用';});
+  var allSorted=nonBizSorted.concat(bizSorted);
+  var max=nonBizSorted.length?nonBizSorted[0][1]:1;
   var chartHtml='';
-  for(var i=0;i<sorted.length;i++){
-    chartHtml+='<div class="bar-row"><div class="bar-label">'+(ICONS[sorted[i][0]]||'')+' '+sorted[i][0]+'</div>';
-    chartHtml+='<div class="bar-bg"><div class="bar-fill" style="width:'+Math.round(sorted[i][1]/max*100)+'%"></div></div>';
-    chartHtml+='<div class="bar-val">'+fmt(sorted[i][1])+'</div></div>';
+  for(var i=0;i<allSorted.length;i++){
+    var cat=allSorted[i][0],amt=allSorted[i][1];
+    var isBiz=cat==='公司費用';
+    var barColor=isBiz?'#B4B2A9':'#D85A30';
+    var barMax=isBiz?max:max;
+    var detailId='detail-'+cat.replace(/[()]/g,'');
+    var subTxs=catTxMap[cat]||[];
+    var detailHtml='';
+    var subSorted=subTxs.slice().sort(function(a,b){return a.date<b.date?1:-1;});
+    for(var j=0;j<subSorted.length;j++){
+      var st=subSorted[j];
+      var stColor=st.type==='cc'?'#185FA5':'#D85A30';
+      detailHtml+='<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid #f0f0eb;font-size:12px;">';
+      detailHtml+='<div><span style="color:#888;">'+fmtD(st.date)+'</span> &nbsp;'+st.name+'</div>';
+      detailHtml+='<div style="font-weight:600;color:'+stColor+';">-NT$'+Math.round(st.amount).toLocaleString()+'</div></div>';
+    }
+    chartHtml+='<div style="margin-bottom:6px;">';
+    chartHtml+='<div class="bar-row" style="cursor:pointer;" onclick="toggleCatDetail(''+detailId+'')">';
+    chartHtml+='<div class="bar-label">'+(ICONS[cat]||'')+' '+cat+'</div>';
+    chartHtml+='<div class="bar-bg"><div class="bar-fill" style="width:'+Math.round(amt/max*100)+'%;background:'+barColor+';"></div></div>';
+    chartHtml+='<div class="bar-val">'+fmt(amt)+'</div>';
+    chartHtml+='<div style="font-size:12px;color:#aaa;margin-left:4px;flex-shrink:0;">▶</div></div>';
+    chartHtml+='<div id="'+detailId+'" style="display:none;background:#f8f8f5;border-radius:8px;padding:4px 12px;margin-bottom:4px;">';
+    if(isBiz)chartHtml+='<div style="font-size:11px;color:#888;padding:4px 0;">公司費用（不計入個人消費）</div>';
+    chartHtml+=detailHtml;
+    chartHtml+='</div></div>';
   }
   document.getElementById('barchart').innerHTML=chartHtml||'<div class="empty">沒有支出資料</div>';
 }
@@ -560,9 +599,13 @@ function runAIAnalysis(){
   for(var i=0;i<txs.length;i++){
     var t=txs[i];
     if(t.type==='income')totalInc+=t.amount;
-    else if(t.type==='expense')totalExp+=t.amount;
-    else if(t.type==='cc')totalCC+=t.amount;
-    if(t.type!=='income'){catMap[t.cat]=(catMap[t.cat]||0)+t.amount;}
+    else if(t.type==='expense'){
+      if(t.cat!=='公司費用')totalExp+=t.amount;
+    }
+    else if(t.type==='cc'){
+      if(t.cat!=='公司費用')totalCC+=t.amount;
+    }
+    if(t.type!=='income'&&t.cat!=='公司費用'){catMap[t.cat]=(catMap[t.cat]||0)+t.amount;}
   }
   var total=totalExp+totalCC;
   var savingRate=totalInc>0?((totalInc-total)/totalInc*100):0;
@@ -661,6 +704,19 @@ function runAIAnalysis(){
 
   result.innerHTML=html;
   result.style.display='block';
+}
+
+function toggleCatDetail(id){
+  var el=document.getElementById(id);
+  if(!el)return;
+  var isOpen=el.style.display!=='none';
+  el.style.display=isOpen?'none':'block';
+  // 更新箭頭
+  var row=el.previousElementSibling;
+  if(row){
+    var arrow=row.querySelector('div:last-child');
+    if(arrow)arrow.textContent=isOpen?'▶':'▼';
+  }
 }
 
 function switchTab(tab,btn){
